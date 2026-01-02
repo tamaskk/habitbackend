@@ -1,0 +1,98 @@
+import type { NextApiRequest, NextApiResponse } from 'next';
+import connectDB from '../../../lib/mongodb';
+import Friend from '../../../models/Friend';
+import { verifyToken } from '../../../lib/jwt';
+
+type Data = {
+  success: boolean;
+  message?: string;
+};
+
+function setCorsHeaders(res: NextApiResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Data>
+) {
+  if (req.method === 'OPTIONS') {
+    setCorsHeaders(res);
+    return res.status(200).end();
+  }
+
+  setCorsHeaders(res);
+
+  if (req.method !== 'POST' && req.method !== 'DELETE') {
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
+  try {
+    await connectDB();
+
+    // Get token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const token = authHeader.substring(7);
+    const payload = verifyToken(token);
+
+    const { requestId } = req.body;
+
+    if (!requestId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide requestId',
+      });
+    }
+
+    // Find the request
+    const request = await Friend.findOne({
+      _id: requestId,
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Friend request not found',
+      });
+    }
+
+    // Verify user owns this request (either sent it or received it)
+    const isSender = request.userId === payload.userId && request.requestedBy === payload.userId;
+    const isReceiver = request.friendId === payload.userId && request.requestedBy !== payload.userId;
+
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to delete this request',
+      });
+    }
+
+    // Get the other user ID
+    const otherUserId = isSender ? request.friendId : request.userId;
+
+    // Delete both friendship entries (bidirectional)
+    await Friend.deleteMany({
+      $or: [
+        { userId: payload.userId, friendId: otherUserId },
+        { userId: otherUserId, friendId: payload.userId },
+      ],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Friend request deleted',
+    });
+  } catch (error: any) {
+    console.error('Delete friend request error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+    });
+  }
+}
