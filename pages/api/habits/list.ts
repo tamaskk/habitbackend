@@ -50,14 +50,14 @@ export default async function handler(
     console.log('Found ${habits.length} habits for user');
     
     const mappedHabits = habits.map(habit => {
-      console.log(`Habit: ${habit.name} (ID: ${habit._id})`);
+      console.log(`Habit: ${habit.name} (ID: ${(habit._id as any)})`);
       console.log(`  Completions count: ${habit.completions.length}`);
       habit.completions.forEach((c: any, index: number) => {
         console.log(`    [${index}] Date: ${c.date}, Completed: ${c.completed}, Progress: ${c.progress || 0}`);
       });
       
       return {
-        id: habit._id.toString(),
+        id: (habit._id as any).toString(),
         name: habit.name,
         description: habit.description,
         color: habit.color,

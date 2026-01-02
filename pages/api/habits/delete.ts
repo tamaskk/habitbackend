@@ -6,6 +6,14 @@ import { verifyToken } from '../../../lib/jwt';
 type Data = {
   success: boolean;
   message?: string;
+  habit?: {
+    id: string;
+    completions: Array<{
+      date: string;
+      completed: boolean;
+      progress: number;
+    }>;
+  };
 };
 
 function setCorsHeaders(res: NextApiResponse) {
