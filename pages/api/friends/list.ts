@@ -58,13 +58,14 @@ export default async function handler(
     }).lean();
 
     const friends = friendships.map(friendship => {
-      const friendUser = friendUsers.find(u => u._id.toString() === friendship.friendId);
+      const friendUser = friendUsers.find(u => (u._id as any).toString() === friendship.friendId);
+      const friendshipId = (friendship._id as any).toString();
       return {
         id: friendship.friendId,
         firstName: friendUser?.firstName || '',
         lastName: friendUser?.lastName || '',
         email: friendUser?.email || '',
-        friendshipId: friendship._id.toString(),
+        friendshipId,
       };
     });
 
@@ -89,9 +90,9 @@ export default async function handler(
     }).lean();
 
     const incomingRequestsWithUsers = incomingRequests.map(request => {
-      const requestUser = incomingUsers.find(u => u._id.toString() === request.userId);
+      const requestUser = incomingUsers.find(u => (u._id as any).toString() === request.userId);
       return {
-        id: request._id.toString(),
+        id: (request._id as any).toString(),
         userId: request.userId,
         firstName: requestUser?.firstName || '',
         lastName: requestUser?.lastName || '',
@@ -108,9 +109,9 @@ export default async function handler(
     }).lean();
 
     const outgoingRequestsWithUsers = outgoingRequests.map(request => {
-      const requestUser = outgoingUsers.find(u => u._id.toString() === request.friendId);
+      const requestUser = outgoingUsers.find(u => (u._id as any).toString() === request.friendId);
       return {
-        id: request._id.toString(),
+        id: (request._id as any).toString(),
         userId: request.friendId,
         firstName: requestUser?.firstName || '',
         lastName: requestUser?.lastName || '',
