@@ -13,6 +13,7 @@ export interface IHabit extends Document {
   activeDays: number[]; // Array of day numbers (1=Monday, 7=Sunday)
   startDate: Date;
   endDate?: Date;
+  scheduledHour?: number; // Hour of day (0-23) when habit should be scheduled in hourly view
   completions: Array<{
     date: Date;
     completed: boolean;
@@ -75,6 +76,11 @@ const HabitSchema: Schema = new Schema({
   },
   endDate: {
     type: Date,
+  },
+  scheduledHour: {
+    type: Number,
+    min: 0,
+    max: 23,
   },
   completions: [{
     date: {

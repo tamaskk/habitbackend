@@ -6,6 +6,8 @@ export interface IUser extends Document {
   lastName: string;
   email: string;
   password: string;
+  dayStartHour: number;
+  dayStartMinute: number;
   createdAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
@@ -35,10 +37,28 @@ const UserSchema: Schema = new Schema({
     minlength: [6, 'Password must be at least 6 characters'],
     select: false,
   },
+  dayStartHour: {
+    type: Number,
+    min: 0,
+    max: 23,
+    default: 0,  // Explicitly set default
+    required: true,
+  },
+  dayStartMinute: {
+    type: Number,
+    min: 0,
+    max: 59,
+    default: 0,  // Explicitly set default
+    required: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
   },
+}, {
+  timestamps: true,
+  minimize: false, // Ensure all fields are saved even if they match defaults
+  // Remove strict: false since all fields are now defined
 });
 
 // Hash password before saving

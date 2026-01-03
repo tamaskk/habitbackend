@@ -56,6 +56,8 @@ export default async function handler(
         console.log(`    [${index}] Date: ${c.date}, Completed: ${c.completed}, Progress: ${c.progress || 0}`);
       });
       
+      console.log(`  ScheduledHour: ${habit.scheduledHour} (type: ${typeof habit.scheduledHour})`);
+      
       return {
         id: (habit._id as any).toString(),
         name: habit.name,
@@ -69,6 +71,7 @@ export default async function handler(
         activeDays: habit.activeDays,
         startDate: habit.startDate.toISOString(),
         endDate: habit.endDate?.toISOString(),
+        scheduledHour: habit.scheduledHour ?? null,
         completions: habit.completions.map((c: any) => {
           const progress = c.progress !== undefined && c.progress !== null ? c.progress : 0;
           // For quantifiable habits (goal > 1), always calculate completed based on progress >= goal

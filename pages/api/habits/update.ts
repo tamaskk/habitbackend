@@ -42,70 +42,60 @@ export default async function handler(
     const token = authHeader.substring(7);
     const payload = verifyToken(token);
 
-    const {
-      name,
-      description,
-      color,
-      icon,
-      type,
-      repeat,
-      goal,
-      goalUnit,
-      activeDays,
-      startDate,
-      endDate,
-      scheduledHour,
-    } = req.body;
+    const { habitId, scheduledHour } = req.body;
 
     // Validation
-    if (!name || !color || !icon || !type || !activeDays || !Array.isArray(activeDays)) {
+    if (!habitId) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: name, color, icon, type, activeDays',
+        message: 'Please provide habitId',
       });
     }
 
-    // Create new habit
-    const habit = new Habit({
+    // Find habit
+    const habit = await Habit.findOne({
+      _id: habitId,
       userId: payload.userId,
-      name,
-      description: description || '',
-      color,
-      icon,
-      type,
-      repeat: repeat || 'Every day',
-      goal: goal || 1,
-      goalUnit: goalUnit || undefined,
-      activeDays,
-      startDate: startDate ? new Date(startDate) : new Date(),
-      endDate: endDate ? new Date(endDate) : undefined,
-      scheduledHour: scheduledHour !== undefined && scheduledHour !== null ? parseInt(scheduledHour) : undefined,
-      completions: [],
     });
 
-    await habit.save();
+    if (!habit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Habit not found',
+      });
+    }
 
-    return res.status(201).json({
+    // Update scheduledHour
+    if (scheduledHour !== undefined && scheduledHour !== null) {
+      const hour = parseInt(scheduledHour.toString());
+      console.log(`Updating habit ${habitId} scheduledHour to ${hour} (parsed from ${scheduledHour})`);
+      if (hour >= 0 && hour <= 23) {
+        habit.scheduledHour = hour;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'scheduledHour must be between 0 and 23',
+        });
+      }
+    } else {
+      console.log(`Clearing scheduledHour for habit ${habitId}`);
+      habit.scheduledHour = undefined;
+    }
+
+    habit.updatedAt = new Date();
+    await habit.save();
+    console.log(`Saved habit ${habitId} with scheduledHour: ${habit.scheduledHour}`);
+
+    return res.status(200).json({
       success: true,
-      message: 'Habit created successfully',
+      message: 'Habit updated successfully',
       habit: {
         id: habit._id.toString(),
-        name: habit.name,
-        description: habit.description,
-        color: habit.color,
-        icon: habit.icon,
-        type: habit.type,
-        repeat: habit.repeat,
-        goal: habit.goal,
-        goalUnit: habit.goalUnit,
-        activeDays: habit.activeDays,
-        startDate: habit.startDate,
-        endDate: habit.endDate,
         scheduledHour: habit.scheduledHour,
       },
     });
   } catch (error: any) {
-    console.error('Create habit error:', error);
+    console.error('Update habit error:', error);
     return res.status(500).json({
       success: false,
       message: error.message || 'Internal server error',
