@@ -11,6 +11,8 @@ type Data = {
     firstName: string;
     lastName: string;
     email: string;
+    dayStartHour: number | null;
+    dayStartMinute: number | null;
   };
 };
 
