@@ -110,27 +110,41 @@ export default async function handler(
     });
 
     if (existingIndex >= 0) {
-      console.log(`Updating existing completion at index ${existingIndex}`);
-      habit.completions[existingIndex].completed = completed;
-      // Update progress if provided
-      if (progress !== undefined) {
-        habit.completions[existingIndex].progress = Math.max(0, Number(progress));
-        // Auto-complete if progress reaches or exceeds goal
-        if (habit.completions[existingIndex].progress >= habit.goal) {
-          habit.completions[existingIndex].completed = true;
+      if (completed) {
+        // Mark as completed - update the entry
+        console.log(`Updating existing completion at index ${existingIndex}`);
+        habit.completions[existingIndex].completed = completed;
+        // Update progress if provided
+        if (progress !== undefined) {
+          habit.completions[existingIndex].progress = Math.max(0, Number(progress));
+          // Auto-complete if progress reaches or exceeds goal
+          if (habit.completions[existingIndex].progress >= habit.goal) {
+            habit.completions[existingIndex].completed = true;
+          }
         }
+        console.log(`Updated completion: Date=${habit.completions[existingIndex].date}, Completed=${habit.completions[existingIndex].completed}, Progress=${habit.completions[existingIndex].progress}`);
+      } else {
+        // Remove completion entry entirely when uncompleting (not just set to false)
+        console.log(`Removing completion entry at index ${existingIndex} (uncompleting)`);
+        habit.completions.splice(existingIndex, 1);
+        console.log(`Removed completion entry. New completions count: ${habit.completions.length}`);
       }
-      console.log(`Updated completion: Date=${habit.completions[existingIndex].date}, Completed=${habit.completions[existingIndex].completed}, Progress=${habit.completions[existingIndex].progress}`);
     } else {
-      console.log('Adding new completion');
-      const newProgress = progress !== undefined ? Math.max(0, Number(progress)) : 0;
-      const newCompletion = {
-        date: targetDateUTC, // Use normalized UTC date
-        completed: completed || (newProgress >= habit.goal),
-        progress: newProgress,
-      };
-      habit.completions.push(newCompletion);
-      console.log(`Added completion: Date=${newCompletion.date}, Completed=${newCompletion.completed}, Progress=${newCompletion.progress}`);
+      // Only add completion entry if marking as completed
+      if (completed) {
+        console.log('Adding new completion');
+        const newProgress = progress !== undefined ? Math.max(0, Number(progress)) : 0;
+        const newCompletion = {
+          date: targetDateUTC, // Use normalized UTC date
+          completed: completed || (newProgress >= habit.goal),
+          progress: newProgress,
+        };
+        habit.completions.push(newCompletion);
+        console.log(`Added completion: Date=${newCompletion.date}, Completed=${newCompletion.completed}, Progress=${newCompletion.progress}`);
+      } else {
+        // If not completed and no entry exists, do nothing (no entry needed)
+        console.log('No completion entry exists and marking as incomplete - nothing to do');
+      }
     }
 
     await habit.save();

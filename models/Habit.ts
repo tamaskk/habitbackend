@@ -19,6 +19,7 @@ export interface IHabit extends Document {
     completed: boolean;
     progress?: number; // Progress toward goal (e.g., 3 out of 8 glasses)
   }>;
+  deletedDates: Date[]; // Array of dates when habit was explicitly deleted/skipped
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,6 +97,10 @@ const HabitSchema: Schema = new Schema({
       default: 0,
       required: false, // Allow undefined, but default to 0
     },
+  }],
+  deletedDates: [{
+    type: Date,
+    required: false,
   }],
   createdAt: {
     type: Date,

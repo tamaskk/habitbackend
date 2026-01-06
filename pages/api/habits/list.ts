@@ -86,6 +86,7 @@ export default async function handler(
             progress: progress,
           };
         }),
+        deletedDates: (habit.deletedDates || []).map((d: any) => d.toISOString()),
       };
     });
     

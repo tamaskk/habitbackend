@@ -101,70 +101,80 @@ export default async function handler(
         console.log(`  [${index}] Date: ${c.date}, Completed: ${c.completed}, Progress: ${c.progress}`);
       });
       
-      // Filter out completions matching the target date
-      // Use the same comparison logic as the complete endpoint
-      habit.completions = habit.completions.filter((c: any, index: number) => {
-        if (!c.date) {
-          console.log(`  [${index}] Keeping entry without date`);
-          return true; // Keep entries without dates
+      // Calculate the start and end of the target date in UTC for MongoDB query
+      const startOfDay = new Date(Date.UTC(
+        targetDate.getUTCFullYear(),
+        targetDate.getUTCMonth(),
+        targetDate.getUTCDate(),
+        0, 0, 0, 0
+      ));
+      const endOfDay = new Date(Date.UTC(
+        targetDate.getUTCFullYear(),
+        targetDate.getUTCMonth(),
+        targetDate.getUTCDate(),
+        23, 59, 59, 999
+      ));
+      
+      console.log('Start of day (UTC):', startOfDay);
+      console.log('End of day (UTC):', endOfDay);
+      
+      // Step 1: Remove any completions for this date
+      const pullResult = await Habit.updateOne(
+        {
+          _id: habitId,
+          userId: payload.userId,
+        },
+        {
+          $pull: {
+            completions: {
+              date: {
+                $gte: startOfDay,
+                $lte: endOfDay,
+              },
+            },
+          },
         }
-        
-        // Handle MongoDB date objects - they might be Date objects or strings
-        let completionDate: Date;
-        if (c.date instanceof Date) {
-          completionDate = c.date;
-        } else if (typeof c.date === 'string') {
-          completionDate = new Date(c.date);
-        } else {
-          // Handle MongoDB extended JSON format
-          completionDate = new Date(c.date);
+      );
+      
+      console.log('MongoDB $pull completions result - Matched:', pullResult.matchedCount, 'Modified:', pullResult.modifiedCount);
+      
+      // Step 2: Add the date to deletedDates array (if not already there)
+      const addToSetResult = await Habit.updateOne(
+        {
+          _id: habitId,
+          userId: payload.userId,
+        },
+        {
+          $addToSet: {
+            deletedDates: targetDateUTC,
+          },
         }
-        
-        console.log(`  [${index}] Original completion date:`, c.date);
-        console.log(`  [${index}] Parsed completion date:`, completionDate);
-        
-        const completionDateUTC = new Date(Date.UTC(
-          completionDate.getUTCFullYear(),
-          completionDate.getUTCMonth(),
-          completionDate.getUTCDate()
-        ));
-        const completionDateString = completionDateUTC.toISOString().split('T')[0];
-        
-        console.log(`  [${index}] CompletionDateUTC:`, completionDateUTC);
-        console.log(`  [${index}] CompletionDateString:`, completionDateString);
-        console.log(`  [${index}] TargetDateString:`, dateStringUTC);
-        console.log(`  [${index}] Matches target?`, completionDateString === dateStringUTC);
-        
-        // Keep entries that don't match the target date
-        const shouldKeep = completionDateString !== dateStringUTC;
-        console.log(`  [${index}] Should keep:`, shouldKeep);
-        
-        return shouldKeep;
-      });
+      );
       
-      const removedCount = originalLength - habit.completions.length;
-      console.log('Removed completions count:', removedCount);
-      console.log('Final completions count:', habit.completions.length);
-      console.log('Final completions:');
-      habit.completions.forEach((c: any, index: number) => {
-        console.log(`  [${index}] Date: ${c.date}, Completed: ${c.completed}, Progress: ${c.progress}`);
-      });
+      console.log('MongoDB $addToSet deletedDates result - Matched:', addToSetResult.matchedCount, 'Modified:', addToSetResult.modifiedCount);
       
-      // Mark the completions array as modified so Mongoose saves it
-      habit.markModified('completions');
-      await habit.save();
-      
-      // Verify the save by reloading the habit
+      // Reload the habit to get the updated completions
       const savedHabit = await Habit.findOne({
         _id: habitId,
         userId: payload.userId,
       });
-      console.log('Verification - Saved habit completions count:', savedHabit?.completions.length);
-      console.log('Verification - Saved completions:');
-      savedHabit?.completions.forEach((c: any, index: number) => {
+      
+      if (!savedHabit) {
+        console.error('ERROR: Failed to reload habit after deletion');
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to verify deletion',
+        });
+      }
+      
+      const removedCount = originalLength - savedHabit.completions.length;
+      console.log('Removed completions count:', removedCount);
+      console.log('Final completions count:', savedHabit.completions.length);
+      console.log('Final completions:');
+      savedHabit.completions.forEach((c: any, index: number) => {
         console.log(`  [${index}] Date: ${c.date}, Completed: ${c.completed}, Progress: ${c.progress}`);
       });
-      console.log('Habit saved to database');
+      
       
       const responseMessage = removedCount > 0 
         ? `Habit completion deleted for ${dateStringUTC}` 
@@ -172,17 +182,20 @@ export default async function handler(
       console.log('Response message:', responseMessage);
       console.log('=== BACKEND: DELETE COMPLETION END ===');
       
-      // Return the updated habit so frontend can verify
+      // Return the updated habit from database (not the in-memory object) so frontend can verify
       return res.status(200).json({
         success: true,
         message: responseMessage,
         habit: {
-          id: habit._id.toString(),
-          completions: habit.completions.map((c: any) => ({
-            date: c.date instanceof Date ? c.date.toISOString() : c.date,
+          id: savedHabit._id.toString(),
+          completions: savedHabit.completions.map((c: any) => ({
+            date: c.date instanceof Date ? c.date.toISOString() : (typeof c.date === 'string' ? c.date : new Date(c.date).toISOString()),
             completed: c.completed,
             progress: c.progress || 0,
           })),
+          deletedDates: (savedHabit.deletedDates || []).map((d: any) => 
+            d instanceof Date ? d.toISOString() : (typeof d === 'string' ? d : new Date(d).toISOString())
+          ),
         },
       });
     } else {
