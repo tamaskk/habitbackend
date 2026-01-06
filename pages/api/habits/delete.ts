@@ -13,6 +13,7 @@ type Data = {
       completed: boolean;
       progress: number;
     }>;
+    deletedDates?: string[];
   };
 };
 
